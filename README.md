@@ -8,6 +8,9 @@ The video "encoder" and file generator takes in the location of a directory that
 ## Usages
 If a user were to make a terminal-based game and wanted a little cutscene, they could use this implementation of this video player. Also, I have gotten "video" to work on embedded devices that do not have traditional display peripherals such as routers or arduinos through the usage of UART or other serial connections; this video project can be implemented entirely esoterically.
 
+## Compiling
+GCC is recommended for compiling C. in the root directory is a Makefile that will compile both the encoder and the player and copy them to the build/ directory. If only one of the 2 programs is wanted, simply cd to the directory of the program's source code and run `make` there instead. 
+
 ## License
 Copyright (C) 2021 SkibbleBip
 
