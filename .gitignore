@@ -1,0 +1,24 @@
+
+
+# Created by https://www.toptal.com/developers/gitignore/api/codeblocks
+# Edit at https://www.toptal.com/developers/gitignore?templates=codeblocks
+
+### CodeBlocks ###
+# specific to CodeBlocks IDE
+*.layout
+*.depend
+# generated directories
+bin/
+obj/
+# End of https://www.toptal.com/developers/gitignore/api/codeblocks
+
+*.save
+zpipe.c
+*.cbp
+*.o
+build/
+#unused and testing stuff that's not needed for final release
+BMPtoASCII/
+DemoCompression/
+demo.txt
+
