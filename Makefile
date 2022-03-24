@@ -44,4 +44,4 @@ all: 	#$(OBJS)
 
 
 clean:
-	rm -r-f $(GENDIR) $(BDIR)
+	rm -r -f $(GENDIR)/build $(PLAYDIR)/build $(BDIR)
