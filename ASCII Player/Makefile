@@ -24,7 +24,7 @@ HEADER	= ../ASCII.h
 OUT	= ASCIIplayer
 CC	 = gcc
 FLAGS	 = -O3 -c -Wall
-LFLAGS	 = -lz
+LFLAGS	 = -lz -lm
 DIR	 = build
 
 all: 	$(OBJS)
