@@ -77,13 +77,13 @@ int main(int argc, char* args[])
         /*file ID for the current frame*/
         FILE* vidFile                   = NULL;
         /*file pointer for the output file*/
-        ASCIIheader asciiHeader         = {"ASCII", 1, 0, 30, WIDTH, HEIGHT, 0};
+        ASCIIheader asciiHeader         = {"ASCII", 1, 0, 0, WIDTH, HEIGHT, 0};
+        uint8_t fps                         = 30;
 
         int ch;
         int iFlag = 0, oFlag = 0, eFlag = 0;
-        while( (ch = getopt(argc, args, "hi:o:")) !=-1 && eFlag == 0){
+        while( (ch = getopt(argc, args, "hi:o:f:")) !=-1 && eFlag == 0){
         /*parse the command parameters*/
-
                 switch(ch){
                 /*depending on the inputted option, process the argument and
                 *set the coresponding flag to present
@@ -115,11 +115,19 @@ int main(int argc, char* args[])
                                 break;
 
                         }
+                        case 'f':{
+                                fps = (uint8_t)atoi(optarg);
+                                if(optarg[0] == '-'){
+                                        eFlag = 1;
+                                        break;
+                                }
+                                break;
+                        }
                         default:{
                         /*display errors for any parameterless options or
                         *undefined options*/
 
-                                if(optopt == 'i' || optopt == 'o')
+                                if(optopt == 'i' || optopt == 'o' || optopt == 'f')
                                         fprintf(stderr, "Option -%c requires argument\n", optopt);
                                 else
                                         fprintf(stderr, "Unknown option -%c\n", optopt);
@@ -129,7 +137,11 @@ int main(int argc, char* args[])
                 }
         }
 
-        if(!iFlag){
+        if(fps == 0){
+                fprintf(stderr, "-f requires a nonzero parameter\n");
+                eFlag = 1;
+        }
+        else if(!iFlag){
         /*if the option -i was never declared, display error*/
                 fprintf(stderr, "Require option -i\n");
                 eFlag = 1;
@@ -198,13 +210,15 @@ int main(int argc, char* args[])
                 exit(1);
         }
 
+        asciiHeader.fps = fps;
         if(fwrite(&asciiHeader, 1, sizeof(ASCIIheader), vidFile ) != sizeof(ASCIIheader) ){
         /*handle writing error while writing the header of the file*/
                 perror("Failed to write to video file");
                 exit(1);
         }
-        printf("Processing frame 1...\n");
+
         processFrame(frame, &strm, vidFile);
+        printf("Processed frame 1...\n");
         /*process the first frame*/
 
         uint8_t flag = 1;
