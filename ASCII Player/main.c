@@ -46,7 +46,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #define         clear()                 printf("\033[0;0H");fflush(stdout);
 
-#define			DURATION(START, STOP)		( (STOP.tv_sec - START.tv_sec) * 1000000 + STOP.tv_usec - START.tv_usec )
+#define			DURATION(START, STOP) \
+        ( (STOP.tv_sec - START.tv_sec) * 1000000 + STOP.tv_usec - START.tv_usec )
 
 
 //unsigned long calcFPSDuration(int input, z_stream* s, uint8_t x, uint8_t y);
@@ -149,7 +150,7 @@ int main(int argc, char* args[])
         *picture, so just draw it and exit
         */
                 decompressAndDisplay(inputFile, &strm, x, y);
-        		close(inputFile);
+                close(inputFile);
                 inflateEnd(&strm);
                 return 0;
         }
@@ -164,32 +165,30 @@ int main(int argc, char* args[])
         int skipFrame = 0;
         for(uint i = 0; i < frames; i++){
         /*decompress all the frames in order*/
-        		uint16_t frameBuffLen;
-				gettimeofday(&start, NULL);
-				frame = decompress(inputFile, &strm, x, y, &frameBuffLen);
-				if(skipFrame){
-					skipFrame--;
-					free(frame);
-					continue;
-				}
-				else{
-					clear();
-					display(frame, x, frameBuffLen);
-				}
-				free(frame);
-				//decompressAndDisplay(inputFile, &strm, x, y);
-				gettimeofday(&stop, NULL);
-				frameDuration = DURATION(start, stop);
-				/*Calculate time it took to render that frame*/
-				signed long long difference = (1000000 / (int8_t)fps - (signed)frameDuration);
-				if(difference < 0){
-					/*if the time to render the frame is longer than the fps rate allows, skip waiting*/
-					skipFrame = ceil( (-1.0) * (double)difference / (1000000.0 / (double)fps) );
-					//printf("diff: %lld frames to skip: %d\n", difference, skipFrame);
-					long wait = skipFrame * (1000000 / fps) - frameDuration;
-					usleep(abs(wait));
-					continue;
-				}
+                uint16_t frameBuffLen;
+                gettimeofday(&start, NULL);
+                frame = decompress(inputFile, &strm, x, y, &frameBuffLen);
+                if(skipFrame){
+                        skipFrame--;
+                        free(frame);
+                        continue;
+                }
+
+                clear();
+                display(frame, x, frameBuffLen);
+                free(frame);
+
+                gettimeofday(&stop, NULL);
+		frameDuration = DURATION(start, stop);
+		/*Calculate time it took to render that frame*/
+		signed long long difference = (1000000 / (int8_t)fps - (signed)frameDuration);
+		if(difference < 0){
+			/*if the time to render the frame is longer than the fps rate allows, skip waiting*/
+			skipFrame = ceil( (-1.0) * (double)difference / (1000000.0 / (double)fps) );
+                        long wait = skipFrame * (1000000 / fps) - frameDuration;
+                        usleep(abs(wait));
+                        continue;
+                }
 
                 usleep(1000000 / fps - frameDuration);
                 /*sleep for the duration that the frame is visable*/
@@ -283,120 +282,119 @@ uint8_t* decompress(int input, z_stream* s, uint8_t x, uint8_t y, uint16_t *arra
         int ret;
         /*return code of the inflation engine*/
 
-
+        uint16_t have;
 
 
         do{
 
-        	int8_t readBytes = 0;
-        	uint16_t len;
+                int8_t readBytes = 0;
+                uint16_t len;
 
-        	if(s->avail_in == 0)
-        		/*Only read if available in is 0. If it isn't, we have to re-scan previous data*/
-        		if( (readBytes = read(input, &raw, 1) ) < 0){
-        			/*read the byte from the input file*/
-        			fprintf(stderr, "Failed to read file\n");
-        			close(input);
-        			inflateEnd(s);
-        			exit(1);
-        		}
-        	if(readBytes == 0){
-        		/*Something has gone wrong reading the file,
-        		  we've reached EOF before we are done processing
-        		  */
-        		fprintf(stderr, "Early EOF reached\n");
-        		break;
-        	}
-        	s->avail_in = (unsigned)readBytes;
-        	s->next_in  = &raw;
-        	/*pointer to the byte being read*/
+                if(s->avail_in == 0)
+                        /*Only read if available in is 0. If it isn't, we have to re-scan previous data*/
+                        if( (readBytes = read(input, &raw, 1) ) < 0){
+                                /*read the byte from the input file*/
+                                fprintf(stderr, "Failed to read file\n");
+                                close(input);
+                                inflateEnd(s);
+                                exit(1);
+                        }
+                if(readBytes == 0){
+                        /*Something has gone wrong reading the file,
+                        we've reached EOF before we are done processing
+                        */
+                        fprintf(stderr, "Early EOF reached\n");
+                        break;
+                }
+                s->avail_in = (unsigned)readBytes;
+                s->next_in  = &raw;
+                /*pointer to the byte being read*/
 
-        	do{
+                do{
 
-        		len = *array_size - pos;
-        		/*calculate the length of the buffer to be filled*/
-        		if(len == 0)
-        			break;
-        		/*if the length to read the remaining frame is 0, then
-        		 *break out, because there is no more remaining data to
-        		 *fill
-        		 */
+                        len = *array_size - pos;
+                        /*calculate the length of the buffer to be filled*/
+                        if(len == 0)
+                                break;
+                        /*if the length to read the remaining frame is 0, then
+                        *break out, because there is no more remaining data to
+                        *fill
+                        */
 
-        		s->avail_out = len;
-        		s->next_out  = bit_compressedTmp;
-        		/*set the output buffer to point to the tmp buffer and
-        		 *it's length of the remaining unused and unfilled room
-        		 */
-
-
-        		ret = inflate(s, Z_NO_FLUSH);
-        		/*inflate the buffer*/
-
-        		if(ret < Z_OK){
-        			/*check if failed to decompress*/
-        			char* q = "Decompression error-%s: %s";
-        			char* p;
-
-        			switch(ret){
-        			case Z_ERRNO: p="File operation error";
-        			break;
-        			case Z_STREAM_ERROR: p="Stream error";
-        			break;
-        			case Z_DATA_ERROR: p="Data error";
-        			break;
-        			case Z_MEM_ERROR: p="Memory error";
-        			break;
-        			case Z_BUF_ERROR: p="Buffer error";
-        			break;
-        			case Z_VERSION_ERROR: p="Zlib Version error";
-        			break;
-        			default: p = "Unspecified error";
-        			break;
-
-        			}
+                        s->avail_out = len;
+                        s->next_out  = bit_compressedTmp;
+                        /*set the output buffer to point to the tmp buffer and
+                        *it's length of the remaining unused and unfilled room
+                        */
 
 
-        			fprintf(stderr, q, p, s->msg);
-        			/*formulate and display the error message*/
-        			//printf("read: %d len: %d array_size: %d pos: %d\n", readBytes, len, *array_size, pos);
+                        ret = inflate(s, Z_NO_FLUSH);
+                        /*inflate the buffer*/
 
-        			close(input);
-        			inflateEnd(s);
-        			free(bit_compressed);
-        			free(bit_compressedTmp);
-        			exit(1);
-        		}
+                        if(ret < Z_OK){
+                                /*check if failed to decompress*/
+                                char* q = "Decompression error-%s: %s";
+                                char* p;
 
-        		uint16_t have = len - s->avail_out;
-        		/*get length of newly filled bytes*/
+                                switch(ret){
+                                case Z_ERRNO: p="File operation error";
+                                break;
+                                case Z_STREAM_ERROR: p="Stream error";
+                                break;
+                                case Z_DATA_ERROR: p="Data error";
+                                break;
+                                case Z_MEM_ERROR: p="Memory error";
+                                break;
+                                case Z_BUF_ERROR: p="Buffer error";
+                                break;
+                                case Z_VERSION_ERROR: p="Zlib Version error";
+                                break;
+                                default: p = "Unspecified error";
+                                break;
 
-        		memcpy(bit_compressed+pos, bit_compressedTmp, have);
-        		/*copy the bytes to the full buffer from the tmp buff
-        		 *and copy the bytes that were read to the end of the
-        		 *current buffer
-        		 */
-        		pos+=have;
-        		/*add the number of read bytes to the position value*/
+                                }
 
 
-        	}while(s->avail_out == 0);
-        	/*keep reading clumps*/
+                                fprintf(stderr, q, p, s->msg);
+                                /*formulate and display the error message*/
+
+                                close(input);
+                                inflateEnd(s);
+                                free(bit_compressed);
+                                free(bit_compressedTmp);
+                                exit(1);
+                        }
+
+                        have = len - s->avail_out;
+                        /*get length of newly filled bytes*/
+
+                        memcpy(bit_compressed+pos, bit_compressedTmp, have);
+                        /*copy the bytes to the full buffer from the tmp buff
+                        *and copy the bytes that were read to the end of the
+                        *current buffer
+                        */
+                        pos+=have;
+                        /*add the number of read bytes to the position value*/
+
+
+                }while(s->avail_out == 0);
+                /*keep reading clumps*/
 
         }while(pos < *array_size);
         /*continue until the position variable is smaller than the size
-         *of the total buffer
-         */
+        *of the total buffer
+        */
 
         if(pos != *array_size){
-        	/*sanity check if the position value somehow expanded past the size of
-        	 *the buffer
-        	 */
-        	fprintf(stderr, "Buffer not fully filled\n");
-        	close(input);
-        	inflateEnd(s);
-        	free(bit_compressedTmp);
-        	free(bit_compressed);
-        	exit(1);
+                /*sanity check if the position value somehow expanded past the size of
+                *the buffer
+                */
+                fprintf(stderr, "Buffer not fully filled\n");
+                close(input);
+                inflateEnd(s);
+                free(bit_compressedTmp);
+                free(bit_compressed);
+                exit(1);
         }
         free(bit_compressedTmp);
         return bit_compressed;
@@ -418,13 +416,12 @@ uint8_t* decompress(int input, z_stream* s, uint8_t x, uint8_t y, uint16_t *arra
 **************************************************************************/
 void display(uint8_t* frame, uint8_t x, uint16_t array_size)
 {
-		uint16_t pos = 5;
+        uint16_t pos = 5;
 
-	    char tmp[6];
-	    uint8_t location = frame[0];
-	    memcpy(tmp, lookup_table[location], 5);
-	    tmp[5] = '\000';
-        //printf("%s", tmp);
+        char tmp[6];
+        uint8_t location = frame[0];
+        memcpy(tmp, lookup_table[location], 5);
+        tmp[5] = '\000';
         fputs(tmp, stdout);
         /*print the very first 5 ASCII pixels*/
 
@@ -433,7 +430,7 @@ void display(uint8_t* frame, uint8_t x, uint16_t array_size)
         *actual 5-char ASCII pixel from the lookup table
         */
                 if(pos%x==0)
-                	fputs("\n", stdout);
+                        fputs("\n", stdout);
                 /*if at the end of a horizontal line, jump to next line*/
 
                 location = frame[i];

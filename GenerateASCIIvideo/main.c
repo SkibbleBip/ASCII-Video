@@ -48,7 +48,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 
 
-
 void processFrame(int tmp, z_stream* ptr, FILE* output);
 uint8_t isLit(pixel p);
 uint8_t decode(char in);
@@ -205,7 +204,7 @@ int main(int argc, char* args[])
                 exit(1);
         }
         printf("Processing frame 1...\n");
-        processFrame(frame, &strm, /*&data,*/ vidFile);
+        processFrame(frame, &strm, vidFile);
         /*process the first frame*/
 
         uint8_t flag = 1;
@@ -267,6 +266,9 @@ int main(int argc, char* args[])
 * using bitwise stuffing and then piped through zlib and written to the output
 * file
 *
+* V1: Initial
+* V2: Fixed bug that would result in avail_in and next_in recycling input
+*
 * Parameters:
 *        tmp    I/P     int     frame handle to process
 *        ptr    I/O     z_stream*       pointer to the zlib stream struct
@@ -295,37 +297,49 @@ void processFrame(int tmp, z_stream* ptr, FILE* output)
                 /*we dont have any available input*/
                 ptr->next_in = (uint8_t*)total;
                 /*need a valid pointer, but we wont be using this*/
-
-                ptr->avail_out = WIDTH*HEIGHT;
-                ptr->next_out = (Bytef*)buff;
-                /*declare the buffer to store the remaining bytes, if any*/
-                int ret = deflate(ptr, Z_FINISH);
-                /*finish deflating*/
-
-                if(ret < 0){
-                /*if there was an error, display it and exit*/
-                        fprintf(stderr, "Compression error: %s\n", ptr->msg);
-                        deflateEnd(ptr);
-                        exit(1);
-                }
-
-                uint remaining = WIDTH*HEIGHT - ptr->avail_out;
-                /*get number of bytes to write (can be 0)*/
-
-                if(fwrite(buff, 1, remaining, output) != remaining){
-                /*write compressed bytes and handle any errors*/
-                        perror("Failed to write to output file");
-                        deflateEnd(ptr);
-                        exit(1);
-
-                }
+                int ret;
 
 
-                printf("total size: %lu bytes\n", ptr->total_out);
+                do{
+                        ptr->avail_out = WIDTH*HEIGHT;
+                        ptr->next_out = (Bytef*)buff;
+                        /*declare the buffer to store the remaining bytes, if any*/
+                        ret = deflate(ptr, Z_FINISH);
+                        /*finish deflating*/
+
+                        if(ret < 0){
+                                /*if there was an error, display it and exit*/
+                                fprintf(stderr, "Compression error: %s\n", ptr->msg);
+                                deflateEnd(ptr);
+                                exit(1);
+                        }
+
+                        uint remaining = WIDTH*HEIGHT - ptr->avail_out;
+                        /*get number of bytes to write (can be 0)*/
+
+                        if(fwrite(buff, 1, remaining, output) != remaining){
+                                /*write compressed bytes and handle any errors*/
+                                perror("Failed to write to output file");
+                                deflateEnd(ptr);
+                                exit(1);
+
+                        }
+
+                }while(ret != Z_STREAM_END);
+                /*continue flushing output until stream lets us know
+                we are done
+                */
+
+
+                printf("Total size: %lu bytes\n", ptr->total_out);
                 /*print number of output bytes*/
                 return;
         }
 
+        /*This will probably throw some warnings. This is intentional.
+        We are intentionally overflowing into the next elements of the
+        struct
+        */
         if(read(tmp, &bmpHeader.header_field, BMP_HEADER_SIZE) < 0){
         /*read the BMP header, handle any reading errors*/
                 perror("Failed to read file");
@@ -435,7 +449,7 @@ void processFrame(int tmp, z_stream* ptr, FILE* output)
         uint16_t array_size = WIDTH * HEIGHT;
         while(array_size % BYTE_ELEMENT_SIZE != 0)
                 array_size++;
-        array_size/=5;
+        array_size/=BYTE_ELEMENT_SIZE;
         /*get the number of bit-compressed elements in the buffer by garunteeing
         *that there is enough elements  to fully hold all elements.*/
         compressed_buff = malloc(array_size);
@@ -476,7 +490,8 @@ void processFrame(int tmp, z_stream* ptr, FILE* output)
 
 
 
-
+        int ret;
+        int remainingIn = array_size;
         do{
                 ptr->avail_out = WIDTH*HEIGHT;
                 ptr->next_out = (Bytef*)buff;
@@ -484,26 +499,30 @@ void processFrame(int tmp, z_stream* ptr, FILE* output)
                 the compressed data
                 */
 
-                ptr->avail_in = array_size;
+                ptr->avail_in = remainingIn;
                 ptr->next_in = (Bytef*)compressed_buff;
-                /*declare the buffer that stores the inputted compressed data to be
+                /*declare the buffer that stores the inputted data to be
                 *zlib'd
                 */
 
 
-                int ret = deflate(ptr, Z_NO_FLUSH);
+                ret = deflate(ptr, Z_NO_FLUSH);
+
+
+
                 /*compress the data*/
-                if(ret < 0){
+                if(ret < 0 && ret != Z_BUF_ERROR){
                 /*if compression error, return error*/
                         fprintf(stderr, "Compression error: %s\n", ptr->msg);
                         deflateEnd(ptr);
                         exit(1);
                 }
 
-                uint remaining = WIDTH*HEIGHT - ptr->avail_out;
+                uint have = WIDTH*HEIGHT - ptr->avail_out;
                 /*get the length of the bytes to write (can be 0)*/
+                remainingIn = (ptr->avail_in ? remainingIn - ptr->avail_in : 0);
 
-                if(fwrite(buff, 1, remaining, output) != remaining){
+                if(fwrite(buff, 1, have, output) != have){
                 /*write the compressed buffer to the output file, if any errors
                 *are occured then return error
                 */
@@ -520,6 +539,7 @@ void processFrame(int tmp, z_stream* ptr, FILE* output)
         /*verify there are no bytes left to process (sanity check)*/
                 fprintf(stderr, "bad compression");
                 deflateEnd(ptr);
+                free(compressed_buff);
                 exit(1);
         }
 
