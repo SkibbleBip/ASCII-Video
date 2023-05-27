@@ -21,12 +21,10 @@
 #OBJS	 = main.o
 #SOURCE	 = main.c
 HEADER	 = ASCII.h
-#OUT	 = ASCIIplayer
 GEN	 = ASCIIvideoGenerator
 PLAY	 = ASCIIplayer
-CC	 = gcc
-FLAGS	 = -O3 -c -Wall
-LFLAGS	 = -lz
+FLAGS	 = $(EXTRAFLAGS) -O3 -c -Wall
+LFLAGS	 = $(EXTRALFLAGS) -lz
 BDIR	 = build
 GENDIR	 = GenerateASCIIvideo
 PLAYDIR	 = ASCII\ Player
@@ -34,7 +32,6 @@ GEX	 = $(GENDIR)/build/$(GEN)
 PEX	 = $(PLAYDIR)/build/$(PLAY)
 
 all: 	#$(OBJS)
-	#$(CC) $(DIR)/$(OBJS) -o $(DIR)/$(OUT) $(LFLAGS)
 	(cd $(GENDIR); make)
 	(cd $(PLAYDIR); make)
 	mkdir -p $(BDIR)
