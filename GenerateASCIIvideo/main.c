@@ -46,6 +46,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define         HEIGHT                  30
 /*width and height of the output video file*/
 
+#define         VERSION         "2"
+
 
 
 void processFrame(int tmp, z_stream* ptr, FILE* output);
@@ -78,7 +80,7 @@ int main(int argc, char* args[])
         FILE* vidFile                   = NULL;
         /*file pointer for the output file*/
         ASCIIheader asciiHeader         = {"ASCII", 1, 0, 0, WIDTH, HEIGHT, 0};
-        uint8_t fps                         = 30;
+        uint8_t fps                     = 30;
 
         int ch;
         int iFlag = 0, oFlag = 0, eFlag = 0;
@@ -158,12 +160,12 @@ int main(int argc, char* args[])
 
         if(eFlag){
         /*if there was an error, display proper usage and exit*/
-                printf( "ASCII Video Generator Version 1, Copyright (C)"
+                printf( "ASCII Video Generator Version " VERSION ", Copyright (C)"
                 " 2021 SkibbleBip\nASCII VIdeo Generator comes with "
                 "ABSOLUTELY NO WARRANTY; for details\ntype '-h'."
                 "This is free software, and you are welcome\n"
                 "to redistribute it under certain conditions.\n\n"
-                        "\tUsage: %s -i [dir] -o [file]\n\n", args[0]);
+                        "\tUsage: %s -i [dir] -o [file] (-f [fps])\n\n", args[0]);
                 return 0;
         }
         if(!oFlag){
