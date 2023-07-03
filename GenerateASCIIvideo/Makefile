@@ -37,4 +37,4 @@ main.o: main.c
 	mv $(OBJS) $(DIR)/
 
 clean:
-	rm -r-f $(OBJS) $(OUT)
+	rm -r -f $(OBJS) $(OUT)

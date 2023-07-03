@@ -175,6 +175,7 @@ int main(int argc, char* args[])
                 }
 
                 clear();
+
                 display(frame, x, frameBuffLen);
                 free(frame);
 
@@ -249,10 +250,13 @@ enum Header_Error processFileErrors(ASCIIheader a)
 **************************************************************************/
 uint8_t* decompress(int input, z_stream* s, uint8_t x, uint8_t y, uint16_t *array_size)
 {
-		*array_size = x * y;
+        *array_size = x * y;
         /*size of the bit-stuffed memory allocation*/
-        uint8_t raw;
-        /*raw byte read from the input file*/
+        static uint8_t raw;
+        /*raw byte read from the input file.
+        * this HAS to be static, because sometimes the input buffer doesn't get
+        * flushed and needs to be reused. As a result, this raw buffer needs
+        * to be static so any previously read data is reusable, if needed.*/
 
         uint16_t pos = 0;
         /*position along the buffer where it's been read to*/
@@ -287,10 +291,10 @@ uint8_t* decompress(int input, z_stream* s, uint8_t x, uint8_t y, uint16_t *arra
 
         do{
 
-                int8_t readBytes = 0;
+                int8_t readBytes = s->avail_in;
                 uint16_t len;
 
-                if(s->avail_in == 0)
+                if(s->avail_in == 0){
                         /*Only read if available in is 0. If it isn't, we have to re-scan previous data*/
                         if( (readBytes = read(input, &raw, 1) ) < 0){
                                 /*read the byte from the input file*/
@@ -299,12 +303,14 @@ uint8_t* decompress(int input, z_stream* s, uint8_t x, uint8_t y, uint16_t *arra
                                 inflateEnd(s);
                                 exit(1);
                         }
-                if(readBytes == 0){
-                        /*Something has gone wrong reading the file,
-                        we've reached EOF before we are done processing
-                        */
-                        fprintf(stderr, "Early EOF reached\n");
-                        break;
+                        if(readBytes == 0){
+                                /*Something has gone wrong reading the file,
+                                we've reached EOF before we are done processing
+                                */
+                                fprintf(stderr, "Early EOF reached\n");
+                                break;
+                        }
+
                 }
                 s->avail_in = (unsigned)readBytes;
                 s->next_in  = &raw;
