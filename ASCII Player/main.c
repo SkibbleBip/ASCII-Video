@@ -53,7 +53,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 
 //unsigned long calcFPSDuration(int input, z_stream* s, uint8_t x, uint8_t y);
-uint8_t* decompress(int input, z_stream* s, uint8_t x, uint8_t y, uint16_t *array_size);
+uint8_t* decompress(int input, z_stream* s, uint16_t array_size);
 void decompressAndDisplay(int input, z_stream* s, uint8_t x, uint8_t y);
 void display(uint8_t* frame, uint8_t x, uint16_t array_size);
 enum Header_Error processFileErrors(ASCIIheader a);
@@ -165,11 +165,18 @@ int main(int argc, char* args[])
         *the first frame
         */
         int skipFrame = 0;
+        uint16_t frameBuffLen = x * y;
+        while(frameBuffLen % BYTE_ELEMENT_SIZE != 0)
+                frameBuffLen++;
+        frameBuffLen/=BYTE_ELEMENT_SIZE;
+        /*get the number of bit-compressed elements in the buffer by garunteeing
+        *that there is enough elements  to fully hold all elements.*/
+
         for(uint i = 0; i < frames; i++){
         /*decompress all the frames in order*/
-                uint16_t frameBuffLen;
+
                 gettimeofday(&start, NULL);
-                frame = decompress(inputFile, &strm, x, y, &frameBuffLen);
+                frame = decompress(inputFile, &strm, frameBuffLen);
                 if(skipFrame){
                         skipFrame--;
                         free(frame);
@@ -241,19 +248,16 @@ enum Header_Error processFileErrors(ASCIIheader a)
 * Author: SkibbleBip
 * Date: 04/10/2023
 * Description: Function that decompresses a single ASCII rendered frame and
-* 		returns it. Frame buffer will be of size x * y
+* 		returns it. Frame buffer will be of size array_list
 *
 * Parameters:
 *        input  I/P     int             File descriptor to the input video file
 *        s      I/O     z_stream*       pointer to zlib stream compressor
-*        x      I/P     uint8_t         x width of frame
-*        y      I/P     uint8_t         y height of frame
+*        array_size     I/P     uint16_t         x and y size of frame
 *        decompress	O/P	uint8_t*		Pointer to ASCII frame array
 **************************************************************************/
-uint8_t* decompress(int input, z_stream* s, uint8_t x, uint8_t y, uint16_t *array_size)
+uint8_t* decompress(int input, z_stream* s, uint16_t array_size)
 {
-        *array_size = x * y;
-        /*size of the bit-stuffed memory allocation*/
         static uint8_t raw[READ_BUFFER_SIZE];
         /*raw byte read from the input file.
         * this HAS to be static, because sometimes the input buffer doesn't get
@@ -262,14 +266,9 @@ uint8_t* decompress(int input, z_stream* s, uint8_t x, uint8_t y, uint16_t *arra
 
         uint16_t pos = 0;
         /*position along the buffer where it's been read to*/
-        while((*array_size) % BYTE_ELEMENT_SIZE != 0)
-                (*array_size)++;
-        *array_size/=BYTE_ELEMENT_SIZE;
-        /*get the number of bit-compressed elements in the buffer by garunteeing
-        *that there is enough elements  to fully hold all elements.*/
 
-        uint8_t* bit_compressed    = malloc(*array_size);
-        uint8_t* bit_compressedTmp = malloc(*array_size);
+        uint8_t* bit_compressed    = malloc(array_size);
+        uint8_t* bit_compressedTmp = malloc(array_size);
         /*buffers to contain the temporary bit-stuffed chunks, and the total
         *buffer to contain the entire frame
         */
@@ -320,7 +319,7 @@ uint8_t* decompress(int input, z_stream* s, uint8_t x, uint8_t y, uint16_t *arra
 
                 do{
 
-                        len = *array_size - pos;
+                        len = array_size - pos;
                         /*calculate the length of the buffer to be filled*/
                         if(len == 0)
                                 break;
@@ -388,12 +387,12 @@ uint8_t* decompress(int input, z_stream* s, uint8_t x, uint8_t y, uint16_t *arra
                 }while(s->avail_out == 0);
                 /*keep reading clumps*/
 
-        }while(pos < *array_size);
+        }while(pos < array_size);
         /*continue until the position variable is smaller than the size
         *of the total buffer
         */
 
-        if(pos != *array_size){
+        if(pos != array_size){
                 /*sanity check if the position value somehow expanded past the size of
                 *the buffer
                 */
@@ -505,8 +504,13 @@ void display(uint8_t* frame, uint8_t x, uint16_t array_size)
 **************************************************************************/
 void decompressAndDisplay(int input, z_stream* s, uint8_t x, uint8_t y)
 {
-	uint16_t frameBuffLen;
-	uint8_t* frame = decompress(input, s, x, y, &frameBuffLen);
+	uint16_t frameBuffLen = x * y;
+        while(frameBuffLen % BYTE_ELEMENT_SIZE != 0)
+                frameBuffLen++;
+        frameBuffLen/=BYTE_ELEMENT_SIZE;
+        /*get the number of bit-compressed elements in the buffer by garunteeing
+        *that there is enough elements  to fully hold all elements.*/
+	uint8_t* frame = decompress(input, s, frameBuffLen);
 	display(frame, x, frameBuffLen);
 	free(frame);
 
