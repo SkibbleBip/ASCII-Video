@@ -49,6 +49,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define			DURATION(START, STOP) \
         ( (STOP.tv_sec - START.tv_sec) * 1000000 + STOP.tv_usec - START.tv_usec )
 
+#define         READ_BUFFER_SIZE        65536
+
 
 //unsigned long calcFPSDuration(int input, z_stream* s, uint8_t x, uint8_t y);
 uint8_t* decompress(int input, z_stream* s, uint8_t x, uint8_t y, uint16_t *array_size);
@@ -252,7 +254,7 @@ uint8_t* decompress(int input, z_stream* s, uint8_t x, uint8_t y, uint16_t *arra
 {
         *array_size = x * y;
         /*size of the bit-stuffed memory allocation*/
-        static uint8_t raw;
+        static uint8_t raw[READ_BUFFER_SIZE];
         /*raw byte read from the input file.
         * this HAS to be static, because sometimes the input buffer doesn't get
         * flushed and needs to be reused. As a result, this raw buffer needs
@@ -291,12 +293,12 @@ uint8_t* decompress(int input, z_stream* s, uint8_t x, uint8_t y, uint16_t *arra
 
         do{
 
-                int8_t readBytes = s->avail_in;
+                int32_t readBytes = s->avail_in;
                 uint16_t len;
 
                 if(s->avail_in == 0){
                         /*Only read if available in is 0. If it isn't, we have to re-scan previous data*/
-                        if( (readBytes = read(input, &raw, 1) ) < 0){
+                        if( (readBytes = read(input, &raw, READ_BUFFER_SIZE) ) < 0){
                                 /*read the byte from the input file*/
                                 fprintf(stderr, "Failed to read file\n");
                                 close(input);
@@ -310,10 +312,10 @@ uint8_t* decompress(int input, z_stream* s, uint8_t x, uint8_t y, uint16_t *arra
                                 fprintf(stderr, "Early EOF reached\n");
                                 break;
                         }
+                        s->next_in  = raw;
 
                 }
                 s->avail_in = (unsigned)readBytes;
-                s->next_in  = &raw;
                 /*pointer to the byte being read*/
 
                 do{
