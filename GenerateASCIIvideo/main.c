@@ -352,11 +352,8 @@ void processFrame(int tmp, z_stream* ptr, FILE* output)
                 return;
         }
 
-        /*This will probably throw some warnings. This is intentional.
-        We are intentionally overflowing into the next elements of the
-        struct
-        */
-        if(read(tmp, &bmpHeader.header_field, BMP_HEADER_SIZE) < 0){
+        /*EEEEEEEEEEEEEEEEEEEEWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW*/
+        if(read(tmp, &((uint8_t*)&bmpHeader)[sizeof(bmpHeader.padding)], BMP_HEADER_SIZE) < 0){
         /*read the BMP header, handle any reading errors*/
                 perror("Failed to read file");
                 deflateEnd(ptr);
@@ -385,7 +382,7 @@ void processFrame(int tmp, z_stream* ptr, FILE* output)
         w       = le32toh(dibHeader.width);
         bpp     = le16toh(dibHeader.bits_per_pixels);
         /*convert the byte orientation to the machine's orientation*/
-        pad     = (w % 4);
+        pad     = ((w * (bpp / 8)) % 4);
         /*calculate the padding of each pixel row*/
         rowLen  = w * (bpp / 8) + pad;
         /*calculate the length of each pixel row, including padding*/
@@ -418,11 +415,11 @@ void processFrame(int tmp, z_stream* ptr, FILE* output)
                         y = i / sample_h;
                         total[x][y] = b;
 
-
-                        uint8_t* buf = malloc(sample_w*3-3);
+                        int32_t burner = (rowLen - j >= sample_w*3-3 ? sample_w*3-3 : rowLen - j);
+                        uint8_t* buf = malloc(burner);
 
                         /*grab a sample buffer and burn it*/
-                        if(read(tmp, buf, sample_w*3-3) < 1){
+                        if(read(tmp, buf, burner) < 1){
                                 perror("Failed to resample");
                                 deflateEnd(ptr);
                                 exit(-1);
@@ -431,6 +428,8 @@ void processFrame(int tmp, z_stream* ptr, FILE* output)
                         free(buf);
 
                 }
+                //for rowLen
+
                 uint8_t burn;
                 for(uint8_t j = 0; j < pad; j++)
                 /*burn any buffer bytes*/
@@ -451,7 +450,7 @@ void processFrame(int tmp, z_stream* ptr, FILE* output)
 
                 i+=(sample_h-1);
 
-        }
+        }//for col
 
         uint16_t c = 0;
         for(int i = HEIGHT-1; i >=0; i--){
