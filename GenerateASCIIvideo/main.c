@@ -39,6 +39,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <stdint.h>
 #include <string.h>
 #include <zlib.h>
+#include <limits.h>
+#include <sys/stat.h>
 #include "../ASCII.h"
 
 
@@ -62,6 +64,9 @@ uint8_t bitCompress(char in[]);
 * Author: SkibbleBip
 * Date: 08/15/2021
 * Description: main function
+*
+* V1: Initial
+* V2: Added input file support of individual bmp frames
 *
 * Parameters:
 *        argc   I/P     int     count of command line params
@@ -195,11 +200,29 @@ int main(int argc, char* args[])
 
         }
 
-        /*attempt to open the first frame. if that frame does not exist,
-        then the folder does not contain any valid frames, exit*/
-        char dest[1024];
-        sprintf(dest, "%s/%03d.bmp", dir, 1);
-        if( (frame = open(dest, O_RDONLY)) < 0){
+        struct stat inpt;
+        stat(dir, &inpt);
+        char dest[PATH_MAX];
+        char * destPtr;
+        uint8_t flag;
+
+        /*Check if the input location is a file or directory
+        * if it is a directory, then get the path of the first frame
+        */
+        if(S_ISDIR(inpt.st_mode)){
+            /* create the path of the first frame*/
+            snprintf(dest, PATH_MAX, "%s/%03d.bmp", dir, 1);
+            dest[PATH_MAX-1] = '\0';
+            destPtr = dest;
+            flag = 1;
+        }
+        else{
+        /*if the path is just a single file, then get it's path as the input destination*/
+            destPtr = dir;
+            flag = 0;
+        }
+
+        if( (frame = open(destPtr, O_RDONLY)) < 0){
         /*open first frame, if it doesnt exist, exit*/
                 fprintf(stderr, "Error, invalid frame %s\n", dest);
                 return 0;
@@ -222,13 +245,20 @@ int main(int argc, char* args[])
         processFrame(frame, &strm, vidFile);
         printf("Processed frame 1...\n");
         /*process the first frame*/
+        if(!flag){
+            processFrame(-1, &strm, vidFile);
+            /*processFrame performs the flushing when last file is reached.
+            * hack for flushing the output
+            */
+            close(frame);
+        }
 
-        uint8_t flag = 1;
+
         uint16_t c = 2;
-        do{
+        while(flag == 1){
 
                 sprintf(dest, "%s/%03d.bmp", dir, c);
-                frame = open(dest, O_RDONLY);
+                frame = open(destPtr, O_RDONLY);
                 /*get name of frame and open it*/
 
                 processFrame(frame, &strm, vidFile);
@@ -248,7 +278,7 @@ int main(int argc, char* args[])
                 */
 
 
-        }while(flag == 1);
+        }
 
         c--;
         uint16_t frameC = c;
