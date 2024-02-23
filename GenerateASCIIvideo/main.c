@@ -284,6 +284,8 @@ int main(int argc, char* args[])
 *
 * V1: Initial
 * V2: Fixed bug that would result in avail_in and next_in recycling input
+* V3: Fixed slanting of the output frame when the input bmp image has a width
+*   that is nondivisible by the default output width
 *
 * Parameters:
 *        tmp    I/P     int     frame handle to process
@@ -572,15 +574,18 @@ void processFrame(int tmp, z_stream* ptr, FILE* output)
 * Description: function that determines what value the currently processed pixel
 * is represented by
 *
+* V1: Initial
+* V2: Optimized calculating using bitwse operations
+*
 * Parameters:
 *        p      I/P     pixel   pixel to analyze
 *        isLit  O/P     uint8_t value that the pixel represents
 **************************************************************************/
 uint8_t isLit(pixel p)
 {
-        if(p.blue==0 && p.green==0 && p.red == 0)
+        if( (p.blue | p.green | p.red) == 0)
                 return 0;
-        if(p.blue==255 && p.green==255 && p.red == 255)
+        if((p.blue & p.green & p.red) == 255)
                 return 1;
         else
                 return 2;
