@@ -22,9 +22,9 @@ OBJS	= main.o
 SOURCE	= main.c
 HEADER	= ../ASCII.h
 OUT	= ASCIIplayer
-CC	 = gcc
-FLAGS	 = -O3 -c -Wall
-LFLAGS	 = -lz -lm
+CC	 ?= gcc
+FLAGS	 += -O3 -c -Wall
+LFLAGS	 += -lz -lm
 DIR	 = build
 
 all: 	$(OBJS)
