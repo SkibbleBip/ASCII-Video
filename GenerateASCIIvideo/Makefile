@@ -24,8 +24,8 @@ SOURCE	= main.c
 HEADER	= ../ASCII.h
 OUT	= ASCIIvideoGenerator
 CC	 ?= gcc
-FLAGS	 += -O3 -c -Wall
-LFLAGS	 += -lz
+FLAGS	 += $(EXTRAFLAGS) -O3 -c -Wall
+LFLAGS	 += $(EXTRALFLAGS) -lz
 DIR	 = build
 
 all: 	$(OBJS)
