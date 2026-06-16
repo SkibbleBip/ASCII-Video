@@ -57,6 +57,7 @@ uint8_t* decompress(int input, z_stream* s, uint16_t array_size);
 void decompressAndDisplay(int input, z_stream* s, uint8_t x, uint8_t y);
 void display(uint8_t* frame, uint8_t x, uint16_t array_size);
 enum Header_Error processFileErrors(ASCIIheader a);
+int playFile(const char* path);
 /*function prototypes*/
 
 /***************************************************************************
@@ -72,15 +73,9 @@ enum Header_Error processFileErrors(ASCIIheader a);
 **************************************************************************/
 int main(int argc, char* args[])
 {
-        int inputFile           = 0;
-        uint8_t x, y, fps       = 0;
-        uint16_t frames         = 0;
-        unsigned long frameDuration;
 
-        ASCIIheader ah;
-        /*ASCII video file header*/
-        z_stream strm;
-        /*Zlib stream information*/
+
+
 
 
         if(argc != 2){
@@ -96,9 +91,25 @@ int main(int argc, char* args[])
                 return 0;
         }
 
-        if((inputFile = open(args[1], O_RDONLY)) < 0){
+        return playFile(args[1]);
+}
+
+
+int playFile(const char* path){
+
+        ASCIIheader ah;
+        /*ASCII video file header*/
+        z_stream strm;
+        /*Zlib stream information*/
+        int inputFile           = 0;
+        uint8_t x, y, fps       = 0;
+        uint16_t frames         = 0;
+        unsigned long frameDuration;
+
+
+        if((inputFile = open(path, O_RDONLY)) < 0){
         /*attempt to open the file passed as an argument*/
-                printf("Failed to open %s\n", args[1]);
+                printf("Failed to open %s\n", path);
                 return 0;
         }
 
