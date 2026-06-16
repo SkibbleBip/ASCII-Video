@@ -56,6 +56,7 @@ void processFrame(int tmp, z_stream* ptr, FILE* output);
 uint8_t isLit(pixel p);
 uint8_t decode(char in);
 uint8_t bitCompress(char in[]);
+int createVideoFile(const char *readPath, const char* outputPath, uint8_t fps);
 /*Prototypes*/
 
 
@@ -75,16 +76,13 @@ uint8_t bitCompress(char in[]);
 **************************************************************************/
 int main(int argc, char* args[])
 {
-        z_stream strm;
+
 
         char* dir                       = NULL;
         char* outputDir                 = NULL;
         /*location of the input dir and output file*/
-        int frame                       = 0;
-        /*file ID for the current frame*/
-        FILE* vidFile                   = NULL;
-        /*file pointer for the output file*/
-        ASCIIheader asciiHeader         = {"ASCII", 1, 0, 0, WIDTH, HEIGHT, 0};
+
+
         uint8_t fps                     = 30;
 
         int ch;
@@ -179,6 +177,19 @@ int main(int argc, char* args[])
                 printf("Defaulting output file %s", outputDir);
         }
 
+        return createVideoFile(dir, outputDir, fps);
+
+}
+
+
+int createVideoFile(const char *readPath, const char* outputPath, uint8_t fps) {
+
+        z_stream strm;
+        ASCIIheader asciiHeader         = {"ASCII", 1, 0, 0, WIDTH, HEIGHT, 0};
+        FILE* vidFile                   = NULL;
+        /*file pointer for the output file*/
+        int frame                       = 0;
+        /*file ID for the current frame*/
         strm.zalloc     = Z_NULL;
         strm.zfree      = Z_NULL;
         strm.opaque     = Z_NULL;
@@ -201,7 +212,7 @@ int main(int argc, char* args[])
         }
 
         struct stat inpt;
-        stat(dir, &inpt);
+        stat(readPath, &inpt);
         char dest[PATH_MAX];
         char * destPtr;
         uint8_t flag;
@@ -211,16 +222,16 @@ int main(int argc, char* args[])
         */
         if(S_ISDIR(inpt.st_mode)){
             /* create the path of the first frame*/
-            snprintf(dest, PATH_MAX, "%s/%03d.bmp", dir, 1);
+            snprintf(dest, PATH_MAX, "%s/%03d.bmp", readPath, 1);
             dest[PATH_MAX-1] = '\0';
-            destPtr = dest;
             flag = 1;
         }
         else{
         /*if the path is just a single file, then get it's path as the input destination*/
-            destPtr = dir;
+            snprintf(dest, PATH_MAX, "%s", readPath);
             flag = 0;
         }
+        destPtr = dest;
 
         if( (frame = open(destPtr, O_RDONLY)) < 0){
         /*open first frame, if it doesnt exist, exit*/
@@ -229,7 +240,7 @@ int main(int argc, char* args[])
         }
 
 
-        if( (vidFile = fopen(outputDir, "w+b")) == NULL){
+        if( (vidFile = fopen(outputPath, "w+b")) == NULL){
         /*open the output file, handle any errors*/
                 perror("Failed to open output file");
                 exit(1);
@@ -257,7 +268,7 @@ int main(int argc, char* args[])
         uint16_t c = 2;
         while(flag == 1){
 
-                sprintf(dest, "%s/%03d.bmp", dir, c);
+                sprintf(dest, "%s/%03d.bmp", readPath, c);
                 frame = open(destPtr, O_RDONLY);
                 /*get name of frame and open it*/
 
@@ -278,7 +289,7 @@ int main(int argc, char* args[])
                 */
 
 
-        }
+        } // looping through all the possible frames
 
         c--;
         uint16_t frameC = c;
@@ -291,15 +302,17 @@ int main(int argc, char* args[])
 
         printf("Writing to %s complete.\n"
                 "\tTotal frames: %u Resolution: %u x %u\n\n",
-                outputDir,
+                outputPath,
                 frameC,
                 WIDTH,
                 HEIGHT );
         /*print resulting information*/
 
         fclose(vidFile);
+        // end processing output file
 
         return 0;
+
 }
 
 
