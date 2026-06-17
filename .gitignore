@@ -16,6 +16,7 @@ obj/
 zpipe.c
 *.cbp
 *.o
+*.a
 build/
 #unused and testing stuff that's not needed for final release
 BMPtoASCII/

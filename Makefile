@@ -18,21 +18,22 @@
 #**************************************************************************/
 
 
-#OBJS	 = main.o
-#SOURCE	 = main.c
 HEADER	 = ASCII.h
 GEN	 = ASCIIvideoGenerator
 PLAY	 = ASCIIplayer
 FLAGS	 = $(EXTRAFLAGS) -O3 -c -Wall
-LFLAGS	 = $(EXTRALFLAGS) -lz
+LFLAGS	 = $(EXTRALFLAGS)
 BDIR	 = build
 GENDIR	 = GenerateASCIIvideo
 PLAYDIR	 = ASCII\ Player
 GEX	 = $(GENDIR)/build/$(GEN)
 PEX	 = $(PLAYDIR)/build/$(PLAY)
+SRCDIR	 = src
+ASCIILIB = $(SRCDIR)/libascii.a
 
-all: 	#$(OBJS)
-	(cd $(GENDIR); make)
+all:
+	(cd $(SRCDIR); make)
+	(cd $(GENDIR); make ASCIILIB=$(ASCIILIB))
 	(cd $(PLAYDIR); make)
 	mkdir -p $(BDIR)
 	cp $(GEX) $(BDIR)/$(GEN)
@@ -41,4 +42,7 @@ all: 	#$(OBJS)
 
 
 clean:
-	rm -r -f $(GENDIR)/build $(PLAYDIR)/build $(BDIR)
+	#rm -r -f $(GENDIR)/build $(PLAYDIR)/build $(SRCDIR)/build $(BDIR)
+	(cd $(SRCDIR); make clean)
+	(cd $(GENDIR); make clean)
+	(cd $(PLAYDIR); make clean)

@@ -18,8 +18,8 @@
 #**************************************************************************/
 
 
-
-OBJS	= main.o
+ASCIILIB ?=
+OBJS    = main.o
 SOURCE	= main.c
 HEADER	= ../ASCII.h
 OUT	= ASCIIvideoGenerator
@@ -29,7 +29,7 @@ LFLAGS	 += $(EXTRALFLAGS) -lz
 DIR	 = build
 
 all: 	$(OBJS)
-	$(CC) $(DIR)/$(OBJS) -o $(DIR)/$(OUT) $(LFLAGS)
+	$(CC) $(DIR)/$(OBJS) -o $(DIR)/$(OUT) ../$(ASCIILIB) $(LFLAGS)
 
 main.o: main.c
 	mkdir -p $(DIR)
