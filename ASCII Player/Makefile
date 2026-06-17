@@ -17,7 +17,7 @@
 #
 #**************************************************************************/
 
-
+ASCIILIB ?=
 OBJS	= main.o
 SOURCE	= main.c
 HEADER	= ../ASCII.h
@@ -28,7 +28,7 @@ LFLAGS	 += $(EXTRALFLAGS) -lz -lm
 DIR	 = build
 
 all: 	$(OBJS)
-	$(CC) $(DIR)/$(OBJS) -o $(DIR)/$(OUT) $(LFLAGS)
+	$(CC) $(DIR)/$(OBJS) -o $(DIR)/$(OUT) ../$(ASCIILIB) $(LFLAGS)
 
 main.o: main.c
 	mkdir -p $(DIR)

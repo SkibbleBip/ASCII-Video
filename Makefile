@@ -34,7 +34,7 @@ ASCIILIB = $(SRCDIR)/libascii.a
 all:
 	(cd $(SRCDIR); make)
 	(cd $(GENDIR); make ASCIILIB=$(ASCIILIB))
-	(cd $(PLAYDIR); make)
+	(cd $(PLAYDIR); make ASCIILIB=$(ASCIILIB))
 	mkdir -p $(BDIR)
 	cp $(GEX) $(BDIR)/$(GEN)
 	cp $(PEX) $(BDIR)/$(PLAY)

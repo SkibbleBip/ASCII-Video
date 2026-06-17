@@ -24,15 +24,15 @@ CFLAGS  = -I.. -O3 -Wall -c
 BUILD   = build
 LIB     = libascii.a
 
-SRC     = ASCII_build.c
-OBJ     = $(BUILD)/ASCII_build.o
+SRC     = ASCII_build.c ASCII_play.c
+OBJ     = $(SRC:%.c=$(BUILD)/%.o)
 
 all: $(LIB)
 
 $(BUILD):
 	mkdir -p $(BUILD)
 
-$(OBJ): $(SRC) | $(BUILD)
+$(BUILD)/%.o: %.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(LIB): $(OBJ)
