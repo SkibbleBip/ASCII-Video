@@ -20,10 +20,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 * Author:  SkibbleBip
 * Procedures: N/A
 ***************************************************************************/
-#ifndef BMP_H
-#define BMP_H
+#ifndef ASCII_H
+#define ASCII_H
 
 #include <stdint.h>
+#include <zlib.h>
 
 
 #define         BMP_HEADER_SIZE         14
@@ -55,39 +56,8 @@ enum Header_Error {OK, COMPRESSION, MAGIC};
 /*definition for processing errors for the player*/
 
 
-typedef struct{
-        uint16_t padding;
-        uint16_t header_field;
-        uint32_t size;
-        uint32_t reserved;
-        uint32_t offset;
 
-} BMP_header;
-/*The header of the BMP file*/
-
-typedef struct{
-        uint32_t header_size;
-        int32_t  width;
-        int32_t  height;
-        uint16_t colour_planes;
-        uint16_t bits_per_pixels;
-        uint32_t compression;
-        uint32_t image_size;
-        uint32_t hor_resol;
-        uint32_t vert_resol;
-        uint32_t num_of_colours;
-        uint32_t num_important_colours;
-
-
-} DIB_header;
-//BITMAPINFOHEADER
-
-typedef struct {
-        uint8_t blue;
-        uint8_t green;
-        uint8_t red;
-} pixel;
-/*RGB values of a single pixel*/
+typedef void (*printer_t)(const char *);
 
 
 typedef struct {
@@ -104,11 +74,18 @@ typedef struct {
 } ASCIIheader;
 
 
+typedef struct {
+    ASCIIheader header;
+    z_stream stream;
+    int fd;
+    printer_t printerFunction;
+} ASCIIfileHandle;
 
 
-
-int playFile(const char* path);
 int createVideoFile(const char *readPath, const char* outputPath, uint8_t fps);
 
+int playFile(ASCIIfileHandle *fileHandle);
+int openASCIIvideo(const char* path, ASCIIfileHandle * fileHandle, printer_t funct);
+void closeASCIIvideo(ASCIIfileHandle *fileHandle);
 
-#endif
+#endif // ASCII_H

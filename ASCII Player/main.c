@@ -31,14 +31,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 
 
-
-//unsigned long calcFPSDuration(int input, z_stream* s, uint8_t x, uint8_t y);
-//uint8_t* decompress(int input, z_stream* s, uint16_t array_size);
-//void decompressAndDisplay(int input, z_stream* s, uint8_t x, uint8_t y);
-//void display(uint8_t* frame, uint8_t x, uint16_t array_size);
-//enum Header_Error processFileErrors(ASCIIheader a);
-
 /*function prototypes*/
+void printer(const char* str)
+{
+    fputs(str, stdout);
+}
 
 /***************************************************************************
 * int main(int argc, char* args[])
@@ -55,9 +52,6 @@ int main(int argc, char* args[])
 {
 
 
-
-
-
         if(argc != 2){
         /*check program argument count*/
                 char* cpr =
@@ -71,7 +65,14 @@ int main(int argc, char* args[])
                 return 0;
         }
 
-        return playFile(args[1]);
+        ASCIIfileHandle handle = {'\0'};
+        int ret = openASCIIvideo(args[1], &handle, printer);
+        if(ret)
+            return ret;
+        ret = playFile(&handle);
+        if(ret)
+            return ret;
+        closeASCIIvideo(&handle);
 }
 
 

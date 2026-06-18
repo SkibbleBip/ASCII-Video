@@ -28,6 +28,45 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <stdio.h>
 #include <stdlib.h>
 
+
+typedef struct{
+        uint16_t padding;
+        uint16_t header_field;
+        uint32_t size;
+        uint32_t reserved;
+        uint32_t offset;
+
+} BMP_header;
+/*The header of the BMP file*/
+
+
+typedef struct{
+        uint32_t header_size;
+        int32_t  width;
+        int32_t  height;
+        uint16_t colour_planes;
+        uint16_t bits_per_pixels;
+        uint32_t compression;
+        uint32_t image_size;
+        uint32_t hor_resol;
+        uint32_t vert_resol;
+        uint32_t num_of_colours;
+        uint32_t num_important_colours;
+
+
+} DIB_header;
+//BITMAPINFOHEADER
+
+
+
+typedef struct {
+        uint8_t blue;
+        uint8_t green;
+        uint8_t red;
+} pixel;
+/*RGB values of a single pixel*/
+
+
 void processFrame(int tmp, z_stream* ptr, FILE* output);
 uint8_t isLit(pixel p);
 uint8_t decode(char in);

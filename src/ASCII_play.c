@@ -31,7 +31,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <zlib.h>
+
 
 
 #define         clear()                 printf("\033[0;0H");fflush(stdout);
@@ -44,48 +44,78 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 
 uint8_t* decompress(int input, z_stream* s, uint16_t array_size);
-void decompressAndDisplay(int input, z_stream* s, uint8_t x, uint8_t y);
-void display(uint8_t* frame, uint8_t x, uint16_t array_size);
+//void decompressAndDisplay(int input, z_stream* s, uint8_t x, uint8_t y);
+void display(uint8_t* frame, uint8_t x, uint16_t array_size, printer_t funct);
 enum Header_Error processFileErrors(ASCIIheader a);
 
+/// @todo add proper error returns
+int openASCIIvideo(const char* path, ASCIIfileHandle * fileHandle, printer_t funct)
+{
+    int inputFile = 0;
+    if((inputFile = open(path, O_RDONLY)) < 0){
+        /*attempt to open the file passed as an argument*/
+        fprintf(stderr, "Failed to open %s\n", path);
+        return 1;
+    }
+
+    if(sizeof(ASCIIheader) != read(inputFile, &fileHandle->header, sizeof(ASCIIheader))){
+    /*read in the file header for the video file*/
+        fprintf(stderr, "Failed to read input file header\n");
+        close(inputFile);
+        return 1;
+    }
+    enum Header_Error ret;
+    if( (ret = processFileErrors(fileHandle->header)) != OK){
+    /*for the time being, only 5-bit stuffed compression supported*/
+        if(ret == COMPRESSION)
+            fprintf(stderr, "Non 5-bit stuffing not supported\n");
+        if(ret == MAGIC)
+            fprintf(stderr, "Invalid header of file\n");
+        close(inputFile);
+        return 1;
+    }
+
+    fileHandle->stream.zalloc     = Z_NULL;
+    fileHandle->stream.zfree      = Z_NULL;
+    fileHandle->stream.opaque     = Z_NULL;
+    fileHandle->stream.avail_in   = 0;
+    fileHandle->stream.next_in    = Z_NULL;
+    /*prepare the zlib stream*/
+
+    int infRet;
+    if((infRet = inflateInit2(&fileHandle->stream, 31)) != Z_OK ){
+    /*initialize the decompression stream*/
+
+        char* f = "Failed to initialize decompression: %s\n";
+        if(infRet == Z_MEM_ERROR)
+            fprintf(stderr, f, "Not enough memory");
+        else if(infRet == Z_VERSION_ERROR)
+            fprintf(stderr, f, "Version differences");
+        close(inputFile);
+        return 1;
+    }
+
+    fileHandle->fd = inputFile;
+    fileHandle->printerFunction = funct;
+    return 0;
+}
 
 
-int playFile(const char* path){
+void closeASCIIvideo(ASCIIfileHandle *fileHandle)
+{
+        close(fileHandle->fd);
+        inflateEnd(&fileHandle->stream);
+        /*close the files and end the stream*/
+}
 
-        ASCIIheader ah;
-        /*ASCII video file header*/
-        z_stream strm;
-        /*Zlib stream information*/
-        int inputFile           = 0;
+int playFile(ASCIIfileHandle *fileHandle){
+
+        int inputFile           = fileHandle->fd;
         uint8_t x, y, fps       = 0;
         uint16_t frames         = 0;
         unsigned long frameDuration;
 
-
-        if((inputFile = open(path, O_RDONLY)) < 0){
-        /*attempt to open the file passed as an argument*/
-                printf("Failed to open %s\n", path);
-                return 0;
-        }
-
-        if(sizeof(ASCIIheader) != read(inputFile, &ah, sizeof(ASCIIheader))){
-        /*read in the file header for the video file*/
-                fprintf(stderr, "Failed to read input file header\n");
-                close(inputFile);
-                return 1;
-        }
-
-        enum Header_Error ret;
-        if( (ret = processFileErrors(ah)) != OK){
-        /*for the time being, only 5-bit stuffed compression supported*/
-                if(ret == COMPRESSION)
-                        printf("Non 5-bit stuffing not supported\n");
-                if(ret == MAGIC)
-                        printf("Invalid header of file\n");
-
-                close(inputFile);
-                return 0;
-        }
+        ASCIIheader ah = fileHandle->header;
 
         x       = ah.x_size;
         y       = ah.y_size;
@@ -93,33 +123,26 @@ int playFile(const char* path){
         frames  = le16toh(ah.frames);
         /*obtain the properties of the file*/
 
-        strm.zalloc     = Z_NULL;
-        strm.zfree      = Z_NULL;
-        strm.opaque     = Z_NULL;
-        strm.avail_in   = 0;
-        strm.next_in    = Z_NULL;
-        /*prepare the zlib stream*/
 
-        int infRet;
-        if((infRet = inflateInit2(&strm, 31)) != Z_OK ){
-        /*initialize the decompression stream*/
 
-                char* f = "Failed to initialize decompression: %s\n";
-                if(infRet == Z_MEM_ERROR)
-                        printf(f, "Not enough memory");
-                else if(infRet == Z_VERSION_ERROR)
-                        printf(f, "Version differences");
-                close(inputFile);
-                return 1;
-        }
+
 
         if(frames == 1){
         /*if the frame count is only 1, then it's not a video, its a single
         *picture, so just draw it and exit
         */
-                decompressAndDisplay(inputFile, &strm, x, y);
+                //decompressAndDisplay(inputFile, &fileHandle->stream, x, y);
+                uint16_t frameBuffLen = x * y;
+                while(frameBuffLen % BYTE_ELEMENT_SIZE != 0)
+                        frameBuffLen++;
+                frameBuffLen/=BYTE_ELEMENT_SIZE;
+                /*get the number of bit-compressed elements in the buffer by garunteeing
+                *that there is enough elements  to fully hold all elements.*/
+                uint8_t* frame = decompress(inputFile, &fileHandle->stream, frameBuffLen);
+                display(frame, x, frameBuffLen, fileHandle->printerFunction);
+                free(frame);
                 close(inputFile);
-                inflateEnd(&strm);
+                inflateEnd(&fileHandle->stream);
                 return 0;
         }
 
@@ -142,7 +165,7 @@ int playFile(const char* path){
         /*decompress all the frames in order*/
 
                 gettimeofday(&start, NULL);
-                frame = decompress(inputFile, &strm, frameBuffLen);
+                frame = decompress(inputFile, &fileHandle->stream, frameBuffLen);
                 if(skipFrame){
                         skipFrame--;
                         free(frame);
@@ -151,7 +174,7 @@ int playFile(const char* path){
 
                 clear();
 
-                display(frame, x, frameBuffLen);
+                display(frame, x, frameBuffLen, fileHandle->printerFunction);
                 free(frame);
 
                 gettimeofday(&stop, NULL);
@@ -178,7 +201,7 @@ int playFile(const char* path){
 
 
         close(inputFile);
-        inflateEnd(&strm);
+        inflateEnd(&fileHandle->stream);
         /*close the files and end the stream*/
         return 0;
 }
@@ -459,7 +482,7 @@ static const char lookup_table[243][5] = {
 *        x		I/P uint8_t			Horizontal width of a frame
 *        array_size I/P uint16_t	size of frame buffer
 **************************************************************************/
-void display(uint8_t* frame, uint8_t x, uint16_t array_size)
+void display(uint8_t* frame, uint8_t x, uint16_t array_size, printer_t funct)
 {
         uint16_t pos = 5;
 
@@ -467,7 +490,7 @@ void display(uint8_t* frame, uint8_t x, uint16_t array_size)
         uint8_t location = frame[0];
         memcpy(tmp, lookup_table[location], 5);
         tmp[5] = '\000';
-        fputs(tmp, stdout);
+        funct(tmp);
         /*print the very first 5 ASCII pixels*/
 
         for(uint16_t i = 1; i < array_size; i++){
@@ -475,13 +498,13 @@ void display(uint8_t* frame, uint8_t x, uint16_t array_size)
         *actual 5-char ASCII pixel from the lookup table
         */
                 if(pos%x==0)
-                        fputs("\n", stdout);
+                        funct("\n");
                 /*if at the end of a horizontal line, jump to next line*/
 
                 location = frame[i];
                 memcpy(tmp, lookup_table[location], 5);
                 tmp[5] = '\000';
-                fputs(tmp, stdout);
+                funct(tmp);
                 pos+=5;
                 /*get the 5 ASCII pixels from the byte value from the lookup
                 *table
@@ -492,29 +515,3 @@ void display(uint8_t* frame, uint8_t x, uint16_t array_size)
 
 
 
-/***************************************************************************
-* void decompressAndDisplay(int input, z_stream* s, uint8_t x, uint8_t y)
-* Author: SkibbleBip
-* Date: 08/25/2021
-* Description: Function that decompresses a single ASCII rendered frame and
-*               displays it
-*
-* Parameters:
-*        input  I/P     int             File descriptor to the input video file
-*        s      I/O     z_stream*       pointer to zlib stream compressor
-*        x      I/P     uint8_t         x width of frame
-*        y      I/P     uint8_t         y height of frame
-**************************************************************************/
-void decompressAndDisplay(int input, z_stream* s, uint8_t x, uint8_t y)
-{
-	uint16_t frameBuffLen = x * y;
-        while(frameBuffLen % BYTE_ELEMENT_SIZE != 0)
-                frameBuffLen++;
-        frameBuffLen/=BYTE_ELEMENT_SIZE;
-        /*get the number of bit-compressed elements in the buffer by garunteeing
-        *that there is enough elements  to fully hold all elements.*/
-	uint8_t* frame = decompress(input, s, frameBuffLen);
-	display(frame, x, frameBuffLen);
-	free(frame);
-
-}
