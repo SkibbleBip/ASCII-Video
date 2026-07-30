@@ -48,6 +48,20 @@ uint8_t* decompress(int input, z_stream* s, uint16_t array_size);
 void display(uint8_t* frame, uint8_t x, uint16_t array_size, printer_t funct);
 enum Header_Error processFileErrors(ASCIIheader a);
 
+
+/***************************************************************************
+* int openASCIIvideo(const char* path, ASCIIfileHandle * fileHandle, printer_t funct)
+* Author: SkibbleBip
+* Date: 07/30/2026
+* Description: Opens the ASCII file and prepares it for processing
+*
+* Parameters:
+*        path           I/P     const char*          path of the file to open
+*        fileHandle     I/O     ASCIIfileHandle*     struct pointer of the file handle
+*        funct          I/P     printer_t            custom function pointer to printer function
+*        openASCIIvideo O/P     int                  error return code
+*
+**************************************************************************/
 /// @todo add proper error returns
 int openASCIIvideo(const char* path, ASCIIfileHandle * fileHandle, printer_t funct)
 {
@@ -101,6 +115,16 @@ int openASCIIvideo(const char* path, ASCIIfileHandle * fileHandle, printer_t fun
 }
 
 
+/***************************************************************************
+* void closeASCIIvideo(ASCIIfileHandle *fileHandle)
+* Author: SkibbleBip
+* Date: 07/30/2026
+* Description: Closes the handle to the ASCII file and frees any resources
+*
+* Parameters:
+*        fileHandle     I/O     ASCIIfileHandle*     struct pointer of the file handle
+*
+**************************************************************************/
 void closeASCIIvideo(ASCIIfileHandle *fileHandle)
 {
         close(fileHandle->fd);
@@ -108,6 +132,116 @@ void closeASCIIvideo(ASCIIfileHandle *fileHandle)
         /*close the files and end the stream*/
 }
 
+
+/***************************************************************************
+* uint16_t renderFrame(ASCIIfileHandle *fileHandle, float speed)
+* Author: SkibbleBip
+* Date: 07/30/2026
+* Description: function that handles extractin and rendering a single frame
+*   at a time, with optional delay and frameskipping
+*
+* Parameters:
+*        fileHandle     I/O     ASCIIfileHandle*     struct pointer of the file handle
+*        speed          I/P     float                speed at which to render frame
+*        renderFrame    O/P     uinnt16_t            number of remaining frames in the file
+* Note: negative speed values produce undefined behavior
+*
+**************************************************************************/
+uint16_t renderFrame(ASCIIfileHandle *fileHandle, float speed)
+{
+    int inputFile           = fileHandle->fd;
+    const uint8_t x         = fileHandle->header.x_size;
+    const uint8_t y         = fileHandle->header.y_size;
+    const uint16_t frames   = le16toh(fileHandle->header.frames);
+    const uint8_t fps       = fileHandle->header.fps;
+    unsigned long frameDuration;
+
+    struct timeval start = {0}, stop = {0};
+
+    if(speed != 0.0f){
+        // if more than one frame, init the start time
+        gettimeofday(&start, NULL);
+    }
+
+
+    uint16_t frameBuffLen = x * y;
+    while(frameBuffLen % BYTE_ELEMENT_SIZE != 0)
+        frameBuffLen++;
+    frameBuffLen/=BYTE_ELEMENT_SIZE;
+    /*get the number of bit-compressed elements in the buffer by garunteeing
+    *that there is enough elements  to fully hold all elements.*/
+    uint8_t* frame = NULL;
+
+
+
+    // if only one frame exists, dont bother delaying
+    if(frames == 1){
+        frame = decompress(inputFile, &fileHandle->stream, frameBuffLen);
+        clear();
+
+        display(frame, x, frameBuffLen, fileHandle->printerFunction);
+        free(frame);
+        return 0;
+    }
+
+
+
+
+
+    if(speed != 0.0f){
+
+        while(fileHandle->frameSkip){
+            frame = decompress(inputFile, &fileHandle->stream, frameBuffLen);
+
+            fileHandle->frameSkip--;
+            free(frame);
+        }
+
+        frame = decompress(inputFile, &fileHandle->stream, frameBuffLen);
+        clear();
+
+        display(frame, x, frameBuffLen, fileHandle->printerFunction);
+        free(frame);
+
+        gettimeofday(&stop, NULL);
+        frameDuration = DURATION(start, stop);
+        /*Calculate time it took to render that frame*/
+        signed long long difference = (1000000 / (int8_t)fps - (signed)frameDuration);
+        if(difference < 0){
+            /*if the time to render the frame is longer than the fps rate allows, skip waiting*/
+            fileHandle->frameSkip = ceil( (-1.0) * (double)difference / (1000000.0 / (double)fps) );
+            long wait = fileHandle->frameSkip * (1000000 / fps) - frameDuration;
+            usleep(abs(wait) / speed);
+            return ( (frames - 1) - (fileHandle->frameCount++) );
+        }
+
+        usleep( (1000000 / fps - frameDuration) / speed);
+        /*sleep for the duration that the frame is visable*/
+        return ( (frames-1) - (fileHandle->frameCount++) );
+    }
+    clear();
+
+    frame = decompress(inputFile, &fileHandle->stream, frameBuffLen);
+
+
+    display(frame, x, frameBuffLen, fileHandle->printerFunction);
+    free(frame);
+
+
+    return ( (frames-1) - (++fileHandle->frameCount) );
+}
+
+
+/***************************************************************************
+* Author: SkibbleBip
+* Date: 07/30/2026
+* Description: function that plays an ASCII file from beginning to end
+*
+* Parameters:
+*        fileHandle     I/O     ASCIIfileHandle*     struct pointer of the file handle
+*        playFile       O/P     int                  error return code
+*
+**************************************************************************/
 int playFile(ASCIIfileHandle *fileHandle){
 
         int inputFile           = fileHandle->fd;
@@ -131,7 +265,6 @@ int playFile(ASCIIfileHandle *fileHandle){
         /*if the frame count is only 1, then it's not a video, its a single
         *picture, so just draw it and exit
         */
-                //decompressAndDisplay(inputFile, &fileHandle->stream, x, y);
                 uint16_t frameBuffLen = x * y;
                 while(frameBuffLen % BYTE_ELEMENT_SIZE != 0)
                         frameBuffLen++;
@@ -153,7 +286,7 @@ int playFile(ASCIIfileHandle *fileHandle){
         /*calculate the time between each frame display by rendering
         *the first frame
         */
-        int skipFrame = 0;
+        fileHandle->frameSkip = 0;
         uint16_t frameBuffLen = x * y;
         while(frameBuffLen % BYTE_ELEMENT_SIZE != 0)
                 frameBuffLen++;
@@ -166,8 +299,8 @@ int playFile(ASCIIfileHandle *fileHandle){
 
                 gettimeofday(&start, NULL);
                 frame = decompress(inputFile, &fileHandle->stream, frameBuffLen);
-                if(skipFrame){
-                        skipFrame--;
+                if(fileHandle->frameSkip){
+                        fileHandle->frameSkip--;
                         free(frame);
                         continue;
                 }
@@ -178,13 +311,13 @@ int playFile(ASCIIfileHandle *fileHandle){
                 free(frame);
 
                 gettimeofday(&stop, NULL);
-		frameDuration = DURATION(start, stop);
-		/*Calculate time it took to render that frame*/
-		signed long long difference = (1000000 / (int8_t)fps - (signed)frameDuration);
-		if(difference < 0){
-			/*if the time to render the frame is longer than the fps rate allows, skip waiting*/
-			skipFrame = ceil( (-1.0) * (double)difference / (1000000.0 / (double)fps) );
-                        long wait = skipFrame * (1000000 / fps) - frameDuration;
+                frameDuration = DURATION(start, stop);
+                /*Calculate time it took to render that frame*/
+                signed long long difference = (1000000 / (int8_t)fps - (signed)frameDuration);
+                if(difference < 0){
+                    /*if the time to render the frame is longer than the fps rate allows, skip waiting*/
+                    fileHandle->frameSkip = ceil( (-1.0) * (double)difference / (1000000.0 / (double)fps) );
+                        long wait = fileHandle->frameSkip * (1000000 / fps) - frameDuration;
                         usleep(abs(wait));
                         continue;
                 }
@@ -196,7 +329,7 @@ int playFile(ASCIIfileHandle *fileHandle){
 
 
 
-        printf("\n\n\n");
+        printer("\n\n\n");
         /*jump to new line*/
 
 

@@ -69,10 +69,15 @@ int main(int argc, char* args[])
         int ret = openASCIIvideo(args[1], &handle, printer);
         if(ret)
             return ret;
-        ret = playFile(&handle);
+        for(uint16_t idx = handle.header.frames; idx > 0; idx = renderFrame(&handle, 1.0f))
+            ;
+
+
+        /*ret = playFile(&handle);
         if(ret)
             return ret;
-        closeASCIIvideo(&handle);
+        closeASCIIvideo(&handle);*/
+        return 0;
 }
 
 

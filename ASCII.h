@@ -79,6 +79,8 @@ typedef struct {
     z_stream stream;
     int fd;
     printer_t printerFunction;
+    uint8_t frameSkip;
+    uint16_t frameCount;
 } ASCIIfileHandle;
 
 
@@ -87,5 +89,7 @@ int createVideoFile(const char *readPath, const char* outputPath, uint8_t fps);
 int playFile(ASCIIfileHandle *fileHandle);
 int openASCIIvideo(const char* path, ASCIIfileHandle * fileHandle, printer_t funct);
 void closeASCIIvideo(ASCIIfileHandle *fileHandle);
+
+uint16_t renderFrame(ASCIIfileHandle *fileHandle, float speed);
 
 #endif // ASCII_H
