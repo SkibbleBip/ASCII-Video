@@ -190,14 +190,18 @@ uint16_t renderFrame(ASCIIfileHandle *fileHandle, float speed)
 
     if(speed != 0.0f){
 
+        uint16_t consumedFrames = 0;
+
         while(fileHandle->frameSkip){
             frame = decompress(inputFile, &fileHandle->stream, frameBuffLen);
 
             fileHandle->frameSkip--;
+            consumedFrames++;
             free(frame);
         }
 
         frame = decompress(inputFile, &fileHandle->stream, frameBuffLen);
+        consumedFrames++;
         clear();
 
         display(frame, x, frameBuffLen, fileHandle->printerFunction);
@@ -212,12 +216,14 @@ uint16_t renderFrame(ASCIIfileHandle *fileHandle, float speed)
             fileHandle->frameSkip = ceil( (-1.0) * (double)difference / (1000000.0 / (double)fps) );
             long wait = fileHandle->frameSkip * (1000000 / fps) - frameDuration;
             usleep(abs(wait) / speed);
-            return ( (frames - 1) - (fileHandle->frameCount++) );
+            fileHandle->frameCount += consumedFrames;
+            return ( (frames) - (fileHandle->frameCount) );
         }
 
         usleep( (1000000 / fps - frameDuration) / speed);
         /*sleep for the duration that the frame is visable*/
-        return ( (frames-1) - (fileHandle->frameCount++) );
+        fileHandle->frameCount += consumedFrames;
+        return ( (frames) - (fileHandle->frameCount) );
     }
     clear();
 
