@@ -24,7 +24,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define ASCII_H
 
 #include <stdint.h>
-#include <zlib.h>
+//#include <zlib.h>
 
 
 #define         BMP_HEADER_SIZE         14
@@ -74,20 +74,14 @@ typedef struct {
 } ASCIIheader;
 
 
-typedef struct {
-    ASCIIheader header;
-    z_stream stream;
-    int fd;
-    printer_t printerFunction;
-    uint8_t frameSkip;
-    uint16_t frameCount;
-} ASCIIfileHandle;
+
+typedef struct ASCIIfileHandle ASCIIfileHandle;
 
 
 int createVideoFile(const char *readPath, const char* outputPath, uint8_t fps);
 
 int playFile(ASCIIfileHandle *fileHandle);
-int openASCIIvideo(const char* path, ASCIIfileHandle * fileHandle, printer_t funct);
+int openASCIIvideo(const char* path, ASCIIfileHandle ** fileHandle, printer_t funct);
 void closeASCIIvideo(ASCIIfileHandle *fileHandle);
 
 uint16_t renderFrame(ASCIIfileHandle *fileHandle, float speed);

@@ -17,26 +17,23 @@
 #
 #**************************************************************************/
 
-CC      = gcc
-AR      = ar
-CFLAGS  = -I.. -O3 -Wall -c
 
-BUILD   = build
-LIB     = libascii.a
+CARGO      = cargo
+CARGO_ROOT = ..
 
-SRC     = ASCII_build.c ASCII_play.c
-OBJ     = $(SRC:%.c=$(BUILD)/%.o)
+LIB      = libascii.a
+RUST_LIB = $(CARGO_ROOT)/target/release/libascii.a
 
 all: $(LIB)
 
-$(BUILD):
-	mkdir -p $(BUILD)
+# build the Rust staticlib (builder + player + all C bindings)
+$(RUST_LIB): builder.rs encoder.rs player.rs lib.rs bindings.rs
+	(cd $(CARGO_ROOT) && $(CARGO) build --release)
 
-$(BUILD)/%.o: %.c | $(BUILD)
-	$(CC) $(CFLAGS) -o $@ $<
-
-$(LIB): $(OBJ)
-	$(AR) rcs $@ $^
+# copy the Rust archive out to the expected name/location
+$(LIB): $(RUST_LIB)
+	cp $(RUST_LIB) $(LIB)
 
 clean:
-	rm -rf $(BUILD) $(LIB)
+	(cd $(CARGO_ROOT) && $(CARGO) clean)
+	rm -f $(LIB)
