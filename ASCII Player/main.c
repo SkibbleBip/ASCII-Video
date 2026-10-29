@@ -65,18 +65,20 @@ int main(int argc, char* args[])
                 return 0;
         }
 
-        ASCIIfileHandle handle = {'\0'};
-        int ret = openASCIIvideo(args[1], &handle, printer);
-        if(ret)
-            return ret;
-        for(uint16_t idx = handle.header.frames; idx > 0; idx = renderFrame(&handle, 1.0f))
+        ASCIIfileHandle* handle = /*{'\0'}*/NULL;
+        int frame_count = openASCIIvideo(args[1], &handle, printer);
+        if(frame_count < 0){
+            printf("Failed to open file: %d\n", frame_count);
+            return frame_count;
+        }
+        for(int32_t idx = frame_count; idx > 0; idx = renderFrame(handle, 0.5f))
             ;
 
 
         /*ret = playFile(&handle);
         if(ret)
-            return ret;
-        closeASCIIvideo(&handle);*/
+            return ret;*/
+        closeASCIIvideo(handle);
         return 0;
 }
 

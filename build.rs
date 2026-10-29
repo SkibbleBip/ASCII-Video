@@ -1,5 +1,3 @@
-
-
 const HEADER_PATH: &str = "ASCII.h";
 
 fn main() {
