@@ -1,9 +1,16 @@
+//! Utilities for creating binary ASCII video files from source bitmaps.
+//!
+//! The builder module reads BMP input, converts each frame to the project's
+//! compact 5-bit representation, and writes the resulting video data into a valid
+//! `ASCIIheader`-prefixed output file.
+
 use std::fs::File;
 use std::io::{Seek, SeekFrom, Write};
 
 use crate::bindings::*;
 use crate::encoder::VideoEncoder;
 
+/// Converts an `ASCIIheader` value into a byte slice suitable for writing to disk.
 pub(crate) fn struct_to_bytes(header: &ASCIIheader) -> &[u8] {
     unsafe {
         std::slice::from_raw_parts(
@@ -13,6 +20,13 @@ pub(crate) fn struct_to_bytes(header: &ASCIIheader) -> &[u8] {
     }
 }
 
+/// Creates an ASCII video file from a single BMP image or a directory of BMP frames.
+///
+/// # Arguments
+///
+/// * `read_path` - Path to a single BMP file or a directory containing numbered BMP frames.
+/// * `output_path` - Destination path for the generated ASCII video file.
+/// * `fps` - Playback speed to store in the output file header.
 pub fn create_video_file(read_path: &str, output_path: &str, fps: u8) -> std::io::Result<()> {
     let mut output_file = File::create(output_path)?;
 
@@ -82,6 +96,7 @@ pub fn create_video_file(read_path: &str, output_path: &str, fps: u8) -> std::io
 const BMP_HEADER_SIZE: usize = 14;
 const DIB_HEADER_SIZE: usize = 40;
 
+/// Converts a BMP byte stream into the project's packed 5-bit ASCII frame format.
 fn get_frame(data: &[u8]) -> std::io::Result<Vec<u8>> {
     let mut cursor: usize = 0;
 
@@ -175,6 +190,7 @@ fn get_frame(data: &[u8]) -> std::io::Result<Vec<u8>> {
     Ok(packed)
 }
 
+/// Reads a slice of raw bytes from the input data and advances the cursor.
 fn read_bytes<'a>(
     data: &'a [u8],
     cursor: &mut usize,
@@ -193,6 +209,7 @@ fn read_bytes<'a>(
     Ok(slice)
 }
 
+/// Maps a pixel triplet to the project's 3-level terminal brightness scale.
 fn get_lit(b: u8, g: u8, r: u8) -> u8 {
     if (b | g | r) == 0 {
         BLACK as u8 // ' ' SPACE
@@ -203,6 +220,7 @@ fn get_lit(b: u8, g: u8, r: u8) -> u8 {
     }
 }
 
+/// Packs a 5-pixel sample into the single-byte 5-bit representation used by the file format.
 fn bit_compress(clump: &[u8; 5]) -> u8 {
     const THREE: u8 = 3;
 

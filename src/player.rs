@@ -1,3 +1,8 @@
+//! Rust library for reading, rendering, and generating ASCII video files.
+//!
+//! The crate exposes both a Rust API and a small C-compatible FFI layer so the
+//! same video format can be consumed from native code and terminal UIs.
+
 use flate2::read::GzDecoder;
 use std::fs::File;
 use std::io::Read;
@@ -6,16 +11,29 @@ use std::time::{Duration, Instant};
 
 use crate::bindings::*;
 
+/// Function pointer type used when a consumer wants to print terminal output.
 pub type PrinterT = extern "C" fn(*const c_char);
 
+/// Runtime handle for an open ASCII video file.
 pub struct ASCIIfileHandle {
+    /// Video header describing width, height, FPS, and frame count.
     pub header: ASCIIheader,
+    /// Gzip decoder used to read compressed frame payloads.
     decoder: GzDecoder<File>,
+    /// Callback invoked to render each decoded frame row.
     printer: PrinterT,
+    /// Number of frames the player has skipped due to timing pressure.
     frame_skip: u8,
+    /// Total number of frames rendered so far.
     frame_count: u16,
 }
 
+/// Opens an ASCII video file from disk and prepares it for playback.
+///
+/// # Arguments
+///
+/// * `path` - Filesystem path to a serialized ASCII video.
+/// * `funct` - Callback used to emit terminal output while rendering frames.
 pub fn open_ascii_video(path: &str, funct: PrinterT) -> std::io::Result<Box<ASCIIfileHandle>> {
     let mut file = File::open(path)?;
 
@@ -46,6 +64,7 @@ pub fn open_ascii_video(path: &str, funct: PrinterT) -> std::io::Result<Box<ASCI
     }))
 }
 
+/// Decodes a single 5-bit packed byte into a 6-character terminal raster snippet.
 fn decode(byte: u8) -> [u8; 6] {
     let mut v = byte;
     let mut out = [b' '; 6];
@@ -63,6 +82,7 @@ fn decode(byte: u8) -> [u8; 6] {
     // return null-terminated string
 }
 
+/// Prints a decoded frame row to the configured terminal callback.
 fn display(frame: &[u8], x: u8, printer: PrinterT) {
     let mut pos: usize = 5;
 
@@ -76,6 +96,7 @@ fn display(frame: &[u8], x: u8, printer: PrinterT) {
     }
 }
 
+/// Plays a complete ASCII video sequence through the registered printer callback.
 pub fn play_file(h: &mut ASCIIfileHandle) -> Result<(), String> {
     let frames = u16::from_le(h.header.frames);
     let fps = h.header.fps.max(1);
@@ -120,6 +141,7 @@ pub fn play_file(h: &mut ASCIIfileHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Renders a single frame while honoring a requested playback rate multiplier.
 pub fn render_frame(h: &mut ASCIIfileHandle, speed: f32) -> Result<u16, String> {
     let frames = u16::from_le(h.header.frames);
     let fps = h.header.fps.max(1);
@@ -179,6 +201,7 @@ pub fn render_frame(h: &mut ASCIIfileHandle, speed: f32) -> Result<u16, String> 
     Ok(frames.saturating_sub(h.frame_count + 1))
 }
 
+/// Reads a single compressed frame from the underlying gzip decoder.
 fn decompress_frame(h: &mut ASCIIfileHandle, len: usize) -> Result<Vec<u8>, String> {
     let mut buf = vec![0u8; len];
     match h.decoder.read_exact(&mut buf) {
