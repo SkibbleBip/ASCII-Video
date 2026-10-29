@@ -3,13 +3,32 @@
 ## What is this?
 This is a file formatting and video player to display monochromatic non-audio videos in ASCII format on the terminal. 
 ## How does this work? 
-The video "encoder" and file generator takes in the location of a directory that contains each individual frame of the video saved as an uncompressed 24-bit BMP file in the name formatting as `%03d.bmp` (001.bmp, 002.bmp, 003.bmp...). Each frame then has it's pixels sampled to match a set resolution of 80 chars by 30 chars (height on most terminals is double the width so this matches an 80x60 resolution) and then compressed first using a 5-bit stuffing algorithm for 5 ASCII chars into a single byte (`char1 + 3*(char2+3*(char3+3*(char4+3*(char5))))`) and then further compressing it through Zlib's deflate algorithm. Information on frames, FPS, resolution and compression methods are stored in the header of the output ASCII video file. Information about the output ASCII video file is defined in ASCII.h . The 3 char "pixels" available in the video output is "black" represented by a space, "white" represented by a '#', and any other colour in between represented by a '*'.
+The video "encoder" and file generator takes in the location of a directory that contains each individual frame of the video saved as an uncompressed 24-bit BMP file in the name formatting as `%03d[...]`.
 
 ## Usages
-If a user were to make a terminal-based game and wanted a little cutscene, they could use this implementation of this video player. Also, I have gotten "video" to work on embedded devices that do not have traditional display peripherals such as routers or arduinos through the usage of UART or other serial connections; this video project can be implemented entirely esoterically.
+If a user were to make a terminal-based game and wanted a little cutscene, they could use this implementation of this video player. Also, I have gotten "video" to work on embedded devices that do not have a full desktop graphics stack.
 
 ## Compiling
-GCC is recommended for compiling C. in the root directory is a Makefile that will compile both the encoder and the player and copy them to the build/ directory. If only one of the 2 programs is wanted, simply cd to the directory of the program's source code and run `make` there instead. 
+This project is now built primarily as a Rust crate, while keeping a C-compatible ABI for compatibility with existing native code. The library is exported from `src/lib.rs` using `extern "C"` functions, and the crate is configured in `Cargo.toml` to build as both a static library and a shared library.
+
+From the repository root, compile it with Cargo:
+
+```bash
+cargo build
+```
+
+For an optimized release build:
+
+```bash
+cargo build --release
+```
+
+The compiled artifacts will be placed in `target/debug` or `target/release`. Depending on your platform, you will typically see:
+
+- `libascii.a` for a static library
+- `libascii.so`, `libascii.dylib`, or `ascii.dll` for a shared library
+
+This means the Rust implementation is the main source of truth, but C code can still link against the same library through the original FFI entry points. If you are consuming the library from C, link against the generated static or dynamic artifact in the target directory.
 
 ## License
 Copyright (C) 2021 SkibbleBip
@@ -18,4 +37,4 @@ This program is free software; you can redistribute it and/or modify it under th
 
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+You should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
